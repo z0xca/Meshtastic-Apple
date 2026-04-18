@@ -1,4 +1,4 @@
-name: Meshtastic iOS 16 legacy IPA
+name: Build IPA
 
 on:
   workflow_dispatch:
@@ -33,9 +33,9 @@ jobs:
           test -d "$APP"
           mkdir -p Payload
           cp -R "$APP" Payload/
-          zip -qr Meshtastic-unsigned.ipa Payload
+          zip -qr gvh.MeshtasticClient-2.3.9.ipa Payload
 
       - uses: actions/upload-artifact@v7
         with:
-          name: meshtastic-ios16-legacy-unsigned-ipa
-          path: Meshtastic-unsigned.ipa
+          name: meshtastic-2.3.9-ios16-unsigned
+          path: gvh.MeshtasticClient-2.3.9.ipa
