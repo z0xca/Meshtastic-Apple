@@ -1,40 +1,27 @@
-# Builds the last Meshtastic Apple revision before @main was marked iOS 17-only (8bcf40f5).
-# Use this for iOS 16-capable binaries when you do not have a Mac: run from GitHub Actions,
-# download the artifact, then sign/install with Sideloadly, AltStore, or TrollStore (see BUILD_IOS16.md).
-name: Build iOS 16 baseline (pre–iOS 17 @main)
+name: Meshtastic iOS 16 legacy IPA
 
 on:
   workflow_dispatch:
     inputs:
       git_ref:
-        description: 'Commit, branch, or tag to build (default = last good iOS 16–friendly @main baseline)'
-        required: false
-        default: '4af2fbc749bdacc9f08f0bdbfd6f36658923e339'
+        default: "4af2fbc749bdacc9f08f0bdbfd6f36658923e339"
 
 jobs:
   build-device-unsigned:
-    name: Device build (unsigned .app → Payload zip)
     runs-on: macos-14
     steps:
-      - name: Checkout (with protobufs submodule)
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ inputs.git_ref }}
           submodules: recursive
 
-      - name: Xcode version
-        run: xcodebuild -version
-
-      - name: Resolve Swift packages
-        run: |
+      - run: |
           xcodebuild \
             -project Meshtastic.xcodeproj \
             -scheme Meshtastic \
-            -resolvePackageDependencies \
-            -clonedSourcePackagesDirPath "${{ runner.temp }}/SourcePackages"
+            -resolvePackageDependencies
 
-      - name: Build for iOS (no code signing)
-        run: |
+      - run: |
           set -eo pipefail
           xcodebuild \
             -project Meshtastic.xcodeproj \
@@ -47,56 +34,14 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             build
 
-      - name: Package for sideloading (Payload + zip)
-        run: |
-          set -eo pipefail
+      - run: |
           APP="${{ github.workspace }}/build/DerivedData/Build/Products/Release-iphoneos/Meshtastic.app"
-          if [ ! -d "$APP" ]; then
-            echo "Expected app not found at $APP"
-            find "${{ github.workspace }}/build/DerivedData/Build/Products" -name '*.app' -maxdepth 4 || true
-            exit 1
-          fi
+          test -d "$APP"
           mkdir -p Payload
           cp -R "$APP" Payload/
-          cd "${{ github.workspace }}"
-          zip -r Meshtastic-iOS-unsigned.zip Payload
-          ls -la Meshtastic-iOS-unsigned.zip
+          zip -qr Meshtastic-unsigned.ipa Payload
 
-      - name: Upload unsigned IPA-style zip
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
-          name: Meshtastic-iOS16-baseline-unsigned
-          path: Meshtastic-iOS-unsigned.zip
-          retention-days: 14
-
-  build-simulator-smoke:
-    name: Simulator smoke build (compile check)
-    runs-on: macos-14
-    steps:
-      - name: Checkout (with protobufs submodule)
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.git_ref }}
-          submodules: recursive
-
-      - name: Resolve Swift packages
-        run: |
-          xcodebuild \
-            -project Meshtastic.xcodeproj \
-            -scheme Meshtastic \
-            -resolvePackageDependencies \
-            -clonedSourcePackagesDirPath "${{ runner.temp }}/SourcePackages"
-
-      - name: Build for iOS Simulator (no signing)
-        run: |
-          set -eo pipefail
-          xcodebuild \
-            -project Meshtastic.xcodeproj \
-            -scheme Meshtastic \
-            -configuration Release \
-            -destination 'generic/platform=iOS Simulator' \
-            -derivedDataPath "${{ github.workspace }}/build/DerivedData-Sim" \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
-            build
+          name: meshtastic-ios16-legacy-unsigned-ipa
+          path: Meshtastic-unsigned.ipa
